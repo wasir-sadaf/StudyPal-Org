@@ -522,34 +522,9 @@ body {
   overflow: hidden;
 }
 
-.notes-sheet::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    180deg,
-    rgba(200, 184, 154, 0.35) 0,
-    rgba(200, 184, 154, 0.35) 1px,
-    transparent 1px,
-    transparent 28px
-  );
-  pointer-events: none;
-}
-
-.notes-sheet::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 40px;
-  width: 2px;
-  background: rgba(200, 75, 47, 0.25);
-  pointer-events: none;
-}
-
 .notes-render {
   position: relative;
-  padding: 28px 28px 28px 64px;
+  padding: 28px;
   min-height: 200px;
 }
 

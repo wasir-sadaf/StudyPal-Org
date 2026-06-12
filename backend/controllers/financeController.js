@@ -15,6 +15,10 @@ function normalizeMonth(month) {
   return month || currentMonth();
 }
 
+function normalizeDate(date) {
+  return date || null;
+}
+
 async function buildBudgetOverview(userId, month) {
   const budgets = await all('SELECT * FROM budgets WHERE user_id = ? AND month = ? ORDER BY category ASC', [userId, month]);
   const spentRows = await all(
@@ -172,23 +176,28 @@ async function deleteExpense(req, res, next) {
 
 async function summary(req, res, next) {
   try {
-    const month = normalizeMonth(req.query.month);
+    const date = normalizeDate(req.query.date);
+    const month = normalizeMonth(req.query.month || (date ? date.slice(0, 7) : null));
+    const timeClause = date ? 'date = ?' : 'substr(date, 1, 7) = ?';
+    const timeValue = date || month;
     const totals = await get(
       `SELECT
         SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as total_spent,
         SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as total_income
-       FROM expenses WHERE user_id = ? AND substr(date, 1, 7) = ?`,
-      [req.user.id, month]
+       FROM expenses WHERE user_id = ? AND ${timeClause}`,
+      [req.user.id, timeValue]
     );
     const breakdown = await all(
       `SELECT category, SUM(amount) as total FROM expenses
-       WHERE user_id = ? AND type = 'expense' AND substr(date, 1, 7) = ?
+       WHERE user_id = ? AND type = 'expense' AND ${timeClause}
        GROUP BY category ORDER BY total DESC`,
-      [req.user.id, month]
+      [req.user.id, timeValue]
     );
     const budget = await buildBudgetOverview(req.user.id, month);
     sendSuccess(res, {
       month,
+      date,
+      scope: date ? 'day' : 'month',
       total_spent: Number(totals?.total_spent || 0),
       total_income: Number(totals?.total_income || 0),
       net: Number(totals?.total_income || 0) - Number(totals?.total_spent || 0),

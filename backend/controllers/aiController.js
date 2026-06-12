@@ -4,7 +4,7 @@ const { sendSuccess } = require('../utils/response');
 async function chat(req, res, next) {
   try {
     // Validate and extract input
-    const { message, contextNotes = [] } = req.body;
+    const { message, contextNotes = [], conversationHistory = [] } = req.body;
 
     // Ensure message exists and is a string
     if (!message || typeof message !== 'string') {
@@ -16,7 +16,7 @@ async function chat(req, res, next) {
     }
 
     // Build prompt safely (includes sanitization and error handling)
-    const prompt = buildContextPrompt(message, contextNotes);
+    const prompt = buildContextPrompt(message, contextNotes, conversationHistory);
 
     // Call AI service (now returns graceful fallback on failure, never throws)
     const reply = await askOpenAI(prompt);

@@ -18,6 +18,7 @@ from expense_agent import (
     ReceiptExtractionError,
 )
 from agent import studypal_graph
+from task_agent import TaskAgent
 
 # Load environment variables
 load_dotenv()
@@ -42,7 +43,13 @@ class ExpenseTextRequest(BaseModel):
     user_id: str | None = None
 
 
+class TaskAssistantRequest(BaseModel):
+    message: str
+    history: list[dict[str, str]] = []
+
+
 agent = ExpenseAgent()
+task_agent = TaskAgent()
 
 @app.post("/upload-note/")
 async def upload_note(file: UploadFile = File(...)):
@@ -168,6 +175,15 @@ async def expense_receipt(
     except ReceiptExtractionError as err:
         return {"status": "DOWN", "error": str(err)}
     except (ExpenseParseError, ExpenseCategorizationError, ExpenseSaveError) as err:
+        return {"status": "DOWN", "error": str(err)}
+
+
+@app.post("/task/assistant")
+async def task_assistant(request: TaskAssistantRequest, authorization: str | None = Header(None)):
+    try:
+        result = task_agent.run(request.message, auth_token=authorization, history=request.history)
+        return {"status": "success", **result}
+    except Exception as err:
         return {"status": "DOWN", "error": str(err)}
 
 if __name__ == "__main__":

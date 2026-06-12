@@ -10,6 +10,8 @@ export default function Notes() {
   const [notes, setNotes] = useState([]);
   const [search, setSearch] = useState('');
   const [active, setActive] = useState({ title: '', content: '', tags: '' });
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteError, setNoteError] = useState('');
   const [summary, setSummary] = useState('');
   const [noteFile, setNoteFile] = useState(null);
   const [agentResult, setAgentResult] = useState(null);
@@ -25,7 +27,6 @@ export default function Notes() {
   useEffect(() => { load(); }, [search]);
 
   const handleHistoryClick = (savedNote) => {
-    console.log('History note clicked:', savedNote);
     let parsedContent = null;
 
     if (typeof savedNote.content === 'string') {
@@ -60,15 +61,45 @@ export default function Notes() {
     setHistoryPayload(normalized);
     setAgentResult(null);
     setAgentSavedId(null);
+    setNoteError('');
     setActive(savedNote);
   };
 
   const save = async (e) => {
     e.preventDefault();
-    if (active.id) await api.put(`/notes/${active.id}`, active);
-    else await api.post('/notes', active);
-    setActive({ title: '', content: '', tags: '' });
-    load();
+    if (!active.title?.trim()) {
+      setNoteError('Title is required.');
+      return;
+    }
+
+    setIsSavingNote(true);
+    setNoteError('');
+
+    try {
+      const payload = {
+        title: active.title.trim(),
+        content: active.content || '',
+        tags: active.tags || ''
+      };
+
+      if (active.id) {
+        await api.put(`/notes/${active.id}`, payload);
+      } else {
+        await api.post('/notes', payload);
+      }
+
+      setActive({ title: '', content: '', tags: '' });
+      setHistoryPayload(null);
+      load();
+    } catch (error) {
+      setNoteError(error?.message || 'Could not save note.');
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
+  const updateActiveField = (field, value) => {
+    setActive((current) => ({ ...current, [field]: value }));
   };
 
   const analyzeNote = async (e) => {
@@ -278,6 +309,66 @@ export default function Notes() {
         </aside>
 
         <main className="notes-main">
+          <section className="notes-output">
+            <div className="notes-output-head">
+              <div>
+                <p className="notes-label">Editor</p>
+                <h2 className="notes-section-title">{active.id ? 'Edit note' : 'Create note'}</h2>
+              </div>
+              <div className="notes-actions">
+                {active.id && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setActive({ title: '', content: '', tags: '' });
+                      setHistoryPayload(null);
+                      setNoteError('');
+                    }}
+                  >
+                    New note
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <form onSubmit={save} className="notes-sheet grid gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <Input
+                  label="Title"
+                  value={active.title || ''}
+                  onChange={(e) => updateActiveField('title', e.target.value)}
+                  placeholder="Note title"
+                  required
+                />
+                <Input
+                  label="Tags"
+                  value={active.tags || ''}
+                  onChange={(e) => updateActiveField('tags', e.target.value)}
+                  placeholder="study, exam, revision"
+                />
+              </div>
+              <label className="grid gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+                Content
+                <textarea
+                  className="input min-h-56"
+                  value={active.content || ''}
+                  onChange={(e) => updateActiveField('content', e.target.value)}
+                  placeholder="Write your note here..."
+                />
+              </label>
+              {noteError && <p className="notes-error">{noteError}</p>}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {active.id ? 'Editing a saved note.' : 'Create a new note, then click history items to edit them later.'}
+                </p>
+                <Button type="submit" disabled={isSavingNote}>
+                  {isSavingNote ? 'Saving...' : active.id ? 'Update note' : 'Create note'}
+                </Button>
+              </div>
+            </form>
+          </section>
+
           <section className="notes-output">
             <div className="notes-output-head">
               <div>

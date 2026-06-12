@@ -13,6 +13,7 @@ dependencies = [
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "python-multipart" },
+    { name = "requests" },
     { name = "serpapi" },
     { name = "uvicorn" },
 ]
@@ -25,6 +26,7 @@ requires-dist = [
     { name = "langchain-openai", specifier = ">=0.3.16" },
     { name = "langgraph", specifier = ">=1.1.10" },
     { name = "python-multipart", specifier = ">=0.0.27" },
+    { name = "requests", specifier = ">=2.32.3" },
     { name = "serpapi", specifier = ">=1.0.2" },
     { name = "uvicorn", specifier = ">=0.46.0" },
 ]

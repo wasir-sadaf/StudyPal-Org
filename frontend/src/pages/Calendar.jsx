@@ -12,6 +12,7 @@ import { today } from '../utils/format';
 
 export default function Calendar() {
   const [events, setEvents] = useState([]);
+  const [tooltip, setTooltip] = useState(null);
   const [form, setForm] = useState({ title: '', start: today(), end: '', color: '#4F46E5' });
   const navigate = useNavigate();
 
@@ -20,6 +21,16 @@ export default function Calendar() {
     if (priority === 'medium') return '#F59E0B';
     if (priority === 'low') return '#16A34A';
     return '#4F46E5';
+  };
+
+  const formatTaskTooltip = (task) => {
+    const details = [];
+    if (task.description) details.push(task.description);
+    if (task.category) details.push(`Category: ${task.category}`);
+    if (task.priority) details.push(`Priority: ${task.priority}`);
+    if (task.status) details.push(`Status: ${task.status}`);
+    if (task.due_date) details.push(`Due: ${task.due_date}`);
+    return details.join('\n');
   };
 
   const load = async () => {
@@ -45,7 +56,11 @@ export default function Calendar() {
         start: task.due_date,
         allDay: true,
         color: getTaskColor(task.priority),
-        extendedProps: { source: 'task', taskId: task.id }
+        extendedProps: {
+          source: 'task',
+          taskId: task.id,
+          task
+        }
       }));
 
     setEvents([...eventEntries, ...taskEntries]);
@@ -77,6 +92,17 @@ export default function Calendar() {
           initialView="dayGridMonth"
           headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }}
           events={events}
+          eventMouseEnter={(info) => {
+            if (info.event.extendedProps?.source !== 'task') return;
+            const task = info.event.extendedProps.task || {};
+            setTooltip({
+              title: info.event.title,
+              body: formatTaskTooltip(task),
+              x: info.jsEvent.pageX,
+              y: info.jsEvent.pageY
+            });
+          }}
+          eventMouseLeave={() => setTooltip(null)}
           eventClick={(info) => {
             const source = info.event.extendedProps?.source;
             if (source === 'task') {
@@ -86,6 +112,19 @@ export default function Calendar() {
             api.delete(`/events/${info.event.extendedProps.eventId}`).then(load);
           }}
         />
+        {tooltip && (
+          <div
+            className="pointer-events-none fixed z-50 max-w-sm rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-xl dark:border-gray-800 dark:bg-gray-950"
+            style={{ left: tooltip.x + 12, top: tooltip.y + 12 }}
+          >
+            <p className="font-semibold text-gray-900 dark:text-white">{tooltip.title}</p>
+            {tooltip.body ? (
+              <pre className="mt-2 whitespace-pre-wrap text-xs leading-5 text-gray-600 dark:text-gray-300">{tooltip.body}</pre>
+            ) : (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">No additional task details.</p>
+            )}
+          </div>
+        )}
       </Card>
     </div>
   );

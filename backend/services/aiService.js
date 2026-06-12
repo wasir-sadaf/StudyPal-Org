@@ -132,6 +132,33 @@ function sanitizeContextNotes(contextNotes) {
     .filter((note) => note.title || note.content);
 }
 
+function sanitizeConversationHistory(conversationHistory) {
+  if (!Array.isArray(conversationHistory)) {
+    return [];
+  }
+
+  return conversationHistory
+    .filter((turn) => turn && typeof turn === 'object')
+    .map((turn) => {
+      const role = turn.role === 'assistant' ? 'assistant' : 'user';
+      const content = typeof turn.content === 'string' ? turn.content.trim().slice(0, MAX_MESSAGE_CHARS) : '';
+      return { role, content };
+    })
+    .filter((turn) => turn.content);
+}
+
+function buildHistoryText(conversationHistory = []) {
+  const safeHistory = sanitizeConversationHistory(conversationHistory);
+  if (safeHistory.length === 0) {
+    return '';
+  }
+
+  return safeHistory
+    .map((turn) => `${turn.role === 'assistant' ? 'AI' : 'USER'}: ${turn.content}`)
+    .join('\n\n')
+    .slice(0, MAX_CONTEXT_CHARS);
+}
+
 /**
  * Build a context-aware prompt that safely injects notes
  * Includes input validation, sanitization, and size limits
@@ -139,7 +166,7 @@ function sanitizeContextNotes(contextNotes) {
  * @param {Array} contextNotes - Array of notes with {id, title, content}
  * @returns {string} - Formatted prompt for Gemini
  */
-function buildContextPrompt(message, contextNotes = []) {
+function buildContextPrompt(message, contextNotes = [], conversationHistory = []) {
   try {
     // Validate and sanitize message
     if (typeof message !== 'string') {
@@ -163,8 +190,10 @@ function buildContextPrompt(message, contextNotes = []) {
         .slice(0, MAX_CONTEXT_CHARS);
     }
 
+    const historyText = buildHistoryText(conversationHistory);
+
     // Return appropriate prompt based on context availability
-    if (contextText.length > 0) {
+    if (contextText.length > 0 && historyText.length > 0) {
       return `You are StudyPal, a focused study assistant.
 
 Use ONLY the provided notes to answer the question. Do not restate the full notes. Focus on the user's question and cite relevant details from the notes.
@@ -172,12 +201,31 @@ Use ONLY the provided notes to answer the question. Do not restate the full note
 STUDY NOTES:
 ${contextText}
 
+  CHAT HISTORY:
+  ${historyText}
+
 ---
 
 USER QUESTION:
 ${message}
 
 Answer clearly and concisely, based only on the notes provided.`;
+    }
+
+    if (historyText.length > 0) {
+      return `You are StudyPal, a focused study assistant.
+
+  Use the chat history as context and answer the latest user message clearly and concisely.
+
+  CHAT HISTORY:
+  ${historyText}
+
+  ---
+
+  USER QUESTION:
+  ${message}
+
+  Answer clearly and concisely.`;
     }
 
     // Fallback to generic prompt if no context
@@ -197,4 +245,4 @@ function makeFlashcardPrompt(text) {
   return `Create concise study flashcards from this material. Return JSON array with front and back fields only:\n\n${text}`;
 }
 
-module.exports = { askOpenAI, buildContextPrompt, sanitizeContextNotes, makeFlashcardPrompt };
+module.exports = { askOpenAI, buildContextPrompt, sanitizeContextNotes, sanitizeConversationHistory, makeFlashcardPrompt };
